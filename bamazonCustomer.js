@@ -2,12 +2,11 @@
 
 var mysql = require("mysql"); 
 var inquirer = require("inquirer"); 
-var colors = require('colors'); 
 var connection = mysql.createConnection({
     host: "localhost",
     port: 3306,
     user: "root",
-    password: "",
+    password: "password",
     database: "products_db"
   
 
@@ -45,28 +44,49 @@ function start(){
         message: "Please enter a how many units you would like to purchase",
     }
     ])
-    .then(function (answers){
-        var product;
+    .then(function (answer){
+        var quantity = answer.units;
+        var item = answer.product;
+        
+        var queryStr = 'SELECT * FROM products WHERE ?';
 
-        for ( var i = 0; i  < res.length;i++){
-            if (res[i].product_name === answers.choices){
-                product = res[i];
-            }
-        }
-        if(res.stock_quantity < parseInt(answer.units)){
-            connection.query("UPDATE products SET ? WHERE ?",
-            [{stock_quantity: answers.units},{item_id: choice.ID}],
-            function(err){
-                console.log("Congrats! Your purchase was made").rainbow;
+        connection.query(queryStr, {item_id: item}, function(err, data){
+            if (err) throw err; 
+
+            if (data.length === 0) {
+				console.log('ERROR: Invalid Item ID. Please select a valid Item ID.');
+				start();
+
+			} else {
+
+            var productData = data[0];
+
+            if (quantity <= productData.stock_quantity) {
+                console.log("Congrats! Your purchase of was made");
                 start();
-            });
+                var updateQueryStr = 'UPDATE products SET stock_quantity = ' + (productData.stock_quantity - quantity) + ' WHERE item_id = ' + item;
+                connection.query(updateQueryStr, function(err, data) {
+                    if (err) throw err;
+
+                    console.log('Your oder has been placed! Your total is $' + productData.price * quantity);
+                    connection.end();
+                })
             } else {
-                console.log("Nope, We do not have enough units to satisfy your order").brRed.black;
+                console.log("Nope, We do not have enough units to satisfy your order");
                 start();
             }
-        });
+       
+        
+        }
     });
-}
+        });
+    
+    })
+
+   };
+
+
+
 
 
     
